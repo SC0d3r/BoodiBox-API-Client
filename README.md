@@ -1,17 +1,23 @@
 # @boodibox/api-client
 
+<div dir="rtl">
+
 این بسته برای **ارسال خودکار پست‌ها به `https://boodibox.com/posts`** طراحی شده — یعنی شما می‌توانید به‌سرعت پست منتشر کنید یا یک بات بسازید که محتوای شما را خودکار ارسال کند.  
 کتابخانه جریان کامل را پوشش می‌دهد: آپلود تصویر (اختیاری) → نظارت روی وضعیت تا زمانی که پردازش شود → ارسال پست با `medias` که سرور تولید می‌کند.
 
 **آموزش گرفتن API Key:** https://boodibox.com/dev/api-key
 
-
 ## نصب
+
+</div>
+
 ```bash
 npm install @boodibox/api-client
 # یا
 yarn add @boodibox/api-client
 ````
+
+<div dir="rtl">
 
 > این کتابخانه از امکانات بومی Node (fetch, FormData, Blob) استفاده می‌کند. از Node >= 18 استفاده کنید، یا برای محیط‌هایی که `FormData` / `Blob` ندارند یک polyfill نصب کنید (مثلاً `formdata-node`).
 
@@ -32,6 +38,8 @@ yarn add @boodibox/api-client
 
 ## استفادهٔ سریع
 
+</div>
+
 ```js
 const createClient = require('@boodibox/api-client');
 
@@ -51,6 +59,8 @@ await client.submitPostWithFiles({
 ```
 
 ---
+
+<div dir="rtl">
 
 ## APIها (توابع اصلی)
 
@@ -90,6 +100,8 @@ await client.submitPostWithFiles({
 
 نمونه:
 
+</div>
+
 ```bash
 export API_KEY="Bearer xxxxx"
 export TEST_INTEGRATION=true
@@ -97,10 +109,14 @@ export BASE_URL="http://localhost:3000"
 bun test
 ```
 
+<div dir="rtl">
+
 ## لینک مفید
 * راهنمای گرفتن API Key: [https://boodibox.com/dev/api-key](https://boodibox.com/dev/api-key)
 
 * پست ها بودیباکس: [https://boodibox.com/posts](https://boodibox.com/posts)
+
+</div>
 
 ## License
 
