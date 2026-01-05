@@ -3,6 +3,7 @@
 <div dir="rtl">
 
 این بسته برای ارسال خودکار **پست‌ها** به https://boodibox.com/posts طراحی شده یعنی شما می‌توانید به‌سرعت پست منتشر کنید یا یک بات بسازید که محتوای شما را خودکار ارسال کند.  
+
 کتابخانه جریان کامل را پوشش می‌دهد: آپلود تصویر (اختیاری) ← نظارت روی وضعیت تا زمانی که پردازش شود ← ارسال پست با `medias` که سرور تولید می‌کند.
 
 **آموزش گرفتن API Key:** https://boodibox.com/dev/api-key
@@ -72,11 +73,18 @@ await client.submitPostWithFiles({
 * `submitPost({ body, medias, replyPermission, quotePostID, userIP })`
 * `submitPostWithFiles({ body, files, replyPermission, quotePostID, pollOptions, timeoutMs })`
 
-  * این تابع به‌صورت convenience تمامی مراحل را انجام می‌دهد: آپلود فایل‌ها → poll تا پردازش → ارسال پست با `medias` برگشتی
+---
+  * این تابع به‌صورت convenience تمامی مراحل را انجام می‌دهد: آپلود فایل‌ها ← poll تا پردازش ← ارسال پست با `medias` برگشتی
+
+<!-- <div align="left"> -->
+
+---- 
 
 ### شکل فایل‌ها (files)
 
 هر عنصر می‌تواند یکی از موارد باشد:
+
+<!-- </div> -->
 
 * `{ path: "./file.jpg" }` — خواندن از دیسک
 * `{ buffer: Buffer, filename: "a.jpg" }`
@@ -96,9 +104,9 @@ await client.submitPostWithFiles({
 
 برای اجرای تست‌های یکپارچه (integration) به صورت اختیاری از متغیرهای محیطی زیر استفاده کنید:
 
-* `API_KEY` — مقدار API key (فرمت: `Bearer <token>` یا فقط توکن)
-* `TEST_INTEGRATION=true` — اگر این مقدار تنظیم نشده باشد، تست یکپارچه نادیده گرفته می‌شود
-* `BASE_URL` — آدرس سرور (مثلاً `http://localhost:3000` یا `https://boodibox.com`)
+* `API_KEY` :مقدار API key (فرمت: `Bearer <token>` یا فقط توکن)
+* `TEST_INTEGRATION=true` :اگر این مقدار تنظیم نشده باشد، تست یکپارچه نادیده گرفته می‌شود
+* `BASE_URL` :آدرس سرور (مثلاً `http://localhost:3000` یا `https://boodibox.com`)
 
 نمونه:
 
