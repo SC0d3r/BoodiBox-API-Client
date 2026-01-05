@@ -5,6 +5,7 @@
  * Changes:
  *  - replyPermission defaults to "PUBLIC" when omitted
  *  - explicitly empty or falsey replyPermission values are rejected
+ *  - submitPost now requires either a non-empty body or at least one media
  *  - other behavior unchanged (upload -> poll -> submit)
  */
 
@@ -186,6 +187,7 @@ function createClient(opts = {}) {
    * submitPost
    * replyPermission: if undefined -> defaults to PUBLIC
    * if explicitly provided but empty/falsey -> throws
+   * now enforces: post must have non-empty body OR at least one media
    */
   async function submitPost({ body = '', medias = [], replyPermission = undefined, quotePostID = null, userIP = null }) {
     // Handle replyPermission defaulting and validation
@@ -198,6 +200,13 @@ function createClient(opts = {}) {
     }
 
     const qid = quotePostID == null ? null : validateQuotePostID(quotePostID);
+
+    // Validation: require either a non-empty body or at least one media
+    const bodyStr = (body == null ? '' : String(body)).trim();
+    const hasMedias = Array.isArray(medias) && medias.length > 0;
+    if (!bodyStr && !hasMedias) {
+      throw new Error('Post must include a non-empty body or at least one media.');
+    }
 
     const url = new URL(config.postsPath, config.baseUrl).toString();
     const payload = { body, medias, replyPermission: rp, quotePostID: qid };
@@ -222,20 +231,25 @@ function createClient(opts = {}) {
    * submitPostWithFiles
    * - If replyPermission undefined -> defaults to PUBLIC
    * - If replyPermission explicitly provided but empty -> throw
+   * - Requires either body or files; if files provided they will be uploaded
    */
   async function submitPostWithFiles({ body = '', files = [], replyPermission = undefined, quotePostID = null, pollOptions = {}, timeoutMs = 120000 }) {
-    if (!Array.isArray(files) || files.length === 0) {
-      // still require replyPermission defaulting behavior
-      return submitPost({ body, medias: [], replyPermission, quotePostID });
+    // If no files and empty body -> reject early
+    const bodyStr = (body == null ? '' : String(body)).trim();
+    if ((!Array.isArray(files) || files.length === 0) && !bodyStr) {
+      throw new Error('Post must include a non-empty body or at least one file to upload.');
     }
 
-    // validate upfront: default or validate
-    if (replyPermission === undefined) {
-      // allow defaulting later in submitPost, but keep same normalization here
-    } else {
+    // validate upfront: default or validate replyPermission and quotePostID
+    if (replyPermission !== undefined) {
       validateReplyPermission(replyPermission);
     }
     if (quotePostID != null) validateQuotePostID(quotePostID);
+
+    if (!Array.isArray(files) || files.length === 0) {
+      // no files to upload, delegate to submitPost which also validates
+      return submitPost({ body, medias: [], replyPermission, quotePostID });
+    }
 
     const uploads = await retryAsync(() => uploadFiles(files), config.maxRetries, 300).catch(err => {
       throw new Error(`Uploading files failed: ${err.message}`);
