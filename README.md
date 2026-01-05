@@ -60,7 +60,7 @@ await client.submitPostWithFiles({
 
 ---
 
-<div dir="rtl">
+<div dir="auto" align="right">
 
 ## APIها (توابع اصلی)
 
@@ -109,7 +109,7 @@ export BASE_URL="http://localhost:3000"
 bun test
 ```
 
-<div dir="rtl">
+<div dir="rtl" align="right">
 
 ## لینک مفید
 * راهنمای گرفتن API Key: [https://boodibox.com/dev/api-key](https://boodibox.com/dev/api-key)
