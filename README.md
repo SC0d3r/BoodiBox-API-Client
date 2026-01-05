@@ -60,12 +60,12 @@ await client.submitPostWithFiles({
 
 ---
 
-<div dir="auto" align="right">
+<div dir="auto">
 
 ## APIها (توابع اصلی)
 
 * `createClient({ baseUrl, apiKey })` – ساخت کلاینت
-* `uploadFiles(files)` – آپلود فایل‌ها (برمی‌گرداند آرایه‌ای از apiupload ids)
+* `uploadFiles(files)` – آپلود فایل‌ها (برمی‌گرداند آرایه‌ای از upload ids)
 * `pollUntilProcessed(uploadId, options)` – نظارت تا وضعیت `PROCESSED`
 * `submitPost({ body, medias, replyPermission, quotePostID, userIP })`
 * `submitPostWithFiles({ body, files, replyPermission, quotePostID, pollOptions, timeoutMs })`
@@ -109,7 +109,7 @@ export BASE_URL="http://localhost:3000"
 bun test
 ```
 
-<div dir="rtl" align="right">
+<div dir="rtl">
 
 ## لینک مفید
 * راهنمای گرفتن API Key: [https://boodibox.com/dev/api-key](https://boodibox.com/dev/api-key)
