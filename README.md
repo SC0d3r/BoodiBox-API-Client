@@ -13,7 +13,9 @@
 
 ```bash
 npm install @boodibox/api-client
-# یا
+```
+یا
+```bash
 yarn add @boodibox/api-client
 ````
 
