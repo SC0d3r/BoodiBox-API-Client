@@ -219,7 +219,7 @@ function createClient(opts = {}) {
 
     if (!resp.ok) {
       const parsed = await safeParseJSON(resp);
-      const e = new Error('submit post failed');
+      const e = new Error(`submit post failed: status: ${resp.status}, body: ${parsed}`);
       e.status = resp.status;
       e.body = parsed;
       throw e;
