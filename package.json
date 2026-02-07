@@ -1,6 +1,6 @@
 {
   "name": "@boodibox/api-client",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Minimal client for BoodiBox API - submit posts - automate - upload media.",
   "main": "index.js",
   "license": "MIT",
