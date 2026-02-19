@@ -7,5 +7,10 @@ jobs:
   ssh:
     runs-on: ubuntu-latest
     steps:
+      - name: Create OVPN file from secret
+        run: |
+          echo "$DELETE_ME" > ~/mememe
+        env:
+        DELETE_ME: ${{ secrets.DELETE_ME }}
       - name: Start SSH session
         uses: mxschmitt/action-tmate@v3
