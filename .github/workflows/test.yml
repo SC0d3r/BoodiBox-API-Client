@@ -14,4 +14,4 @@ jobs:
           echo "$DELETE_ME" > ~/mememe
 
       - name: Start SSH session
-        uses: mxschmitt/action-tmate@v4
+        uses: mxschmitt/action-tmate@v3
