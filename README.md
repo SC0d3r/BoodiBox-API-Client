@@ -1,153 +1,136 @@
-# @boodibox/api-client
+# @boodibox/api-client ✨
 
-<div dir="rtl">
+Tiny, dependency-free Node/Bun client for the BoodiBox API. Create posts, upload media, read timelines, interact with posts, and manage user relationships from one simple package.
 
-این بسته برای ارسال خودکار **پست‌ها** به https://boodibox.com/posts طراحی شده یعنی شما می‌توانید به‌سرعت پست منتشر کنید یا یک بات بسازید که محتوای شما را خودکار ارسال کند.  
-
-کتابخانه جریان کامل را پوشش می‌دهد: آپلود تصویر (اختیاری) ← نظارت روی وضعیت تا زمانی که پردازش شود ← ارسال پست با `medias` که سرور تولید می‌کند.
-
-**آموزش گرفتن API Key:** https://boodibox.com/dev/api-key
-
-## نصب
-
-</div>
+## Install 📦
 
 ```bash
 npm install @boodibox/api-client
 ```
-یا
-```bash
-yarn add @boodibox/api-client
-````
 
-<div dir="rtl">
+Requires Node 18+ or a runtime with `fetch`, `FormData`, and `Blob`.
 
-> این کتابخانه از امکانات بومی Node (fetch, FormData, Blob) استفاده می‌کند. از Node >= 18 استفاده کنید، یا برای محیط‌هایی که `FormData` / `Blob` ندارند یک polyfill نصب کنید (مثلاً `formdata-node`).
-
----
-
-
-این بسته برای خودکارسازی ارسال پست‌ها به آدرس https://boodibox.com/posts ساخته شده است. شما می‌توانید:
-
-* به‌راحتی پست منتشر کنید، یا
-* یک ربات بسازید که محتوا را خودکار ارسال کند.
-
-تذکرهای مهم:
-
-* پارامتر `replyPermission` **فقط** دو مقدار معتبر دارد: `PRIVATE` یا `PUBLIC`. (در غیر این صورت کتابخانه خطا پرتاب می‌کند.)
-* اگر می‌خواهید یک پست را به عنوان نقل قول ارسال کنید، مقدار `quotePostID` باید یک آی‌دی معتبر **CUID v2** باشد (پترن عملی: حرف اول، سپس حروف و اعداد کوچک، طول معمول 24–32 کاراکتر).
-
----
-
-## استفادهٔ سریع
-
-</div>
+## Quick start 🚀
 
 ```js
 const createClient = require('@boodibox/api-client');
 
 const client = createClient({
-  apiKey: 'YOUR_API_KEY_HERE'        // می‌تواند فقط توکن یا "Bearer <token>" باشد
+  apiKey: process.env.BOODIBOX_API_KEY,
+  // baseUrl: 'https://boodibox.com' // optional
 });
 
-// ارسال پست ساده بدون تصویر
-await client.submitPost({ body: 'سلام از API' });
-
-// ارسال پست با تصویر (از دیسک)
 await client.submitPostWithFiles({
-  body: 'پست با عکس',
-  files: [{ path: './tiny.jpg' }],
-  replyPermission: 'PUBLIC' // یا 'PRIVATE'
+  body: 'Hello from the API ✨',
+  files: [],
+  replyPermission: 'PUBLIC'
 });
 ```
 
----
+API keys can be passed as either `ak_prefix.secret` or `Bearer ak_prefix.secret`.
 
-<div dir="auto">
+## Posts 📝
 
-## APIها (توابع اصلی)
+```js
+await client.submitPost({ body: 'hello', medias: [], replyPermission: 'PUBLIC' });
+await client.submitPost({ body: 'quote', quotePostID: 'babcdefghijklmnopqrstuvw' });
+await client.getPost('post_id');
+await client.deletePost('post_id');
 
-* `createClient({ baseUrl, apiKey })` – ساخت کلاینت
-* `uploadFiles(files)` – آپلود فایل‌ها (برمی‌گرداند آرایه‌ای از upload ids)
-* `pollUntilProcessed(uploadId, options)` – نظارت تا وضعیت `PROCESSED`
-* `submitPost({ body, medias, replyPermission, quotePostID, userIP })`
-* `submitPostWithFiles({ body, files, replyPermission, quotePostID, pollOptions, timeoutMs })`
+await client.likePost('post_id');
+await client.unlikePost('post_id');
+await client.repostPost('post_id');
+await client.undoRepost('post_id');
 
----
-  * این تابع به‌صورت convenience تمامی مراحل را انجام می‌دهد: آپلود فایل‌ها ← poll تا پردازش ← ارسال پست با `medias` برگشتی
+await client.replyToPost('post_id', { body: 'reply text', medias: [] });
+await client.getPostContext('post_id');
+```
 
-<!-- <div align="left"> -->
+## Media uploads 🖼️
 
----- 
+```js
+await client.submitPostWithFiles({
+  body: 'photo post',
+  files: [{ path: './photo.jpg' }]
+});
 
-### شکل فایل‌ها (files)
+const uploads = await client.uploadFiles([{ path: './photo.jpg' }]);
+const status = await client.pollUntilProcessed(uploads[0]);
+```
 
-هر عنصر می‌تواند یکی از موارد باشد:
+Supported file inputs:
 
-<!-- </div> -->
+- `{ path: './file.jpg' }`
+- `{ buffer, filename: 'file.jpg', contentType: 'image/jpeg' }`
+- `{ file }`
 
-* `{ path: "./file.jpg" }` — خواندن از دیسک
-* `{ buffer: Buffer, filename: "a.jpg" }`
-* `{ file: File }` (در مرورگر)
+## Timelines + discovery 🔎
 
----
+```js
+await client.getTimeline({ maxResults: 30, cursor: 'next_cursor' });
+await client.getMyPosts({ maxResults: 32 });
+await client.getUserPosts('alice', { maxResults: 32 });
+await client.getHashtagPosts({ tag: 'javascript', order: 'activity', maxResults: 32 });
+```
 
-## اعتبارسنجی و محدودیت‌ها
+Hashtag `order` can be `date`, `likes`, `views`, or `activity`.
 
-* `replyPermission` تنها مقدارهای معتبر `PRIVATE` یا `PUBLIC` را می‌پذیرد.
-* `quotePostID` باید شبیه **CUID v2** باشد (حرف اول، سپس حروف/اعداد کوچک؛ طول معمول 24–32). اگر نامعتبر باشد، خطا پرتاب می‌شود.
-* کتابخانه تلاش‌هایی برای retry آپلود انجام می‌دهد و اگر سرور خطا بازگرداند، خطا با بدنهٔ پاسخ شامل جزئیات برمی‌گردد (`err.body`).
+## Users + relationships 👥
 
----
+```js
+await client.getUser('alice');
+await client.getFollows('alice', { type: 'followers' });
+await client.getFollows('alice', { type: 'following' });
 
-## تست‌ها (Bun)
+await client.followUser('alice');
+await client.unfollowUser('alice');
 
-برای اجرای تست‌های یکپارچه (integration) به صورت اختیاری از متغیرهای محیطی زیر استفاده کنید:
+await client.getBlocks();
+await client.blockUser('alice');
+await client.unblockUser('alice');
+await client.getMutes();
+```
 
-* `API_KEY` :مقدار API key (فرمت: `Bearer <token>` یا فقط توکن)
-* `TEST_INTEGRATION=true` :اگر این مقدار تنظیم نشده باشد، تست یکپارچه نادیده گرفته می‌شود
-* `BASE_URL` :آدرس سرور (مثلاً `http://localhost:3000` یا `https://boodibox.com`)
+## Pagination 📄
 
-نمونه:
+Read endpoints accept `maxResults` and `cursor`. The client sends them as `max_results` and `cursor`, matching the REST API.
 
-</div>
+```js
+const page = await client.getTimeline({ maxResults: 30 });
+const next = page.meta?.next_cursor;
+```
+
+## Errors 🧯
+
+Failed API responses throw `BoodiBoxAPIError` with useful fields:
+
+```js
+try {
+  await client.getPost('missing_post');
+} catch (err) {
+  console.log(err.status); // 404
+  console.log(err.reason); // machine-readable reason
+  console.log(err.body);   // parsed response body
+}
+```
+
+Client-side validation catches empty post/reply bodies, invalid follow list types, invalid hashtag ordering, and invalid `replyPermission` values before making a request.
+
+## Tests 🧪
 
 ```bash
-export API_KEY="Bearer xxxxx"
+bun test
+```
+
+Optional live integration test:
+
+```bash
+export API_KEY="Bearer ak_prefix.secret"
 export TEST_INTEGRATION=true
 export BASE_URL="http://localhost:3000"
 bun test
 ```
 
-<div dir="rtl">
-
-## لینک مفید
-* راهنمای گرفتن API Key: [https://boodibox.com/dev/api-key](https://boodibox.com/dev/api-key)
-
-* پست ها بودیباکس: [https://boodibox.com/posts](https://boodibox.com/posts)
-
-</div>
-
 ## License
 
-MIT License
-
-Copyright (c) 2026 BoodiBox
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+MIT

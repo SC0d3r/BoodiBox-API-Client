@@ -1,69 +1,29 @@
-/**
- * index.js
- * BoodiBox API client (minimal, no deps)
- *
- * Changes:
- *  - replyPermission defaults to "PUBLIC" when omitted
- *  - explicitly empty or falsey replyPermission values are rejected
- *  - submitPost now requires either a non-empty body or at least one media
- *  - other behavior unchanged (upload -> poll -> submit)
- */
-
-const fs = require('node:fs');
-const path = require('node:path');
 const { fetchWithTimeout } = require('./lib/http');
+const { BoodiBoxAPIError, parseResponseBody } = require('./lib/errors');
+const {
+  FOLLOW_TYPES,
+  HASHTAG_ORDERS,
+  appendQuery,
+  assertNonEmpty,
+  buildFilePart,
+  ensureFormDataSupport,
+  normalizeApiKey,
+  retryAsync,
+  validateQuotePostID,
+  validateReplyPermission,
+  wait
+} = require('./lib/utils');
 
 const DEFAULTS = {
   baseUrl: process.env.BASE_URL || 'https://boodibox.com',
   uploadPath: '/api/v1/uploads',
+  apiPath: '/api/v1',
   postsPath: '/api/v1/posts',
   pollIntervalMs: 1000,
   pollTimeoutMs: 30000,
+  requestTimeoutMs: 15000,
   maxRetries: 3
 };
-
-// Practical CUID v2-ish regex: starts with a letter, lowercase alnum, length 24..32
-const CUID2_REGEX = /^[a-z][a-z0-9]{23,31}$/i;
-const REPLY_PERMISSIONS = new Set(['PRIVATE', 'PUBLIC']);
-
-function ensureFormDataSupport() {
-  if (typeof FormData === 'undefined' || typeof Blob === 'undefined') {
-    throw new Error('Global FormData/Blob not available. Run in Node >=18 or provide a polyfill (e.g. formdata-node).');
-  }
-}
-
-function normalizeApiKey(raw) {
-  if (!raw) return null;
-  if (raw.startsWith('Bearer ')) return raw;
-  return `Bearer ${raw}`;
-}
-
-/**
- * Validate replyPermission:
- *  - If rp is undefined -> caller should handle defaulting (we default to PUBLIC upstream)
- *  - If rp is explicitly provided but falsey ('' / null / 0 / false) -> reject
- *  - Otherwise normalize and ensure it is PUBLIC or PRIVATE
- */
-function validateReplyPermission(rp) {
-  if (rp === undefined) return; // caller handles default
-  if (rp === null || (typeof rp === 'string' && rp.trim() === '') || !rp) {
-    throw new Error('replyPermission cannot be empty. Use "PUBLIC" or "PRIVATE".');
-  }
-  const up = String(rp).toUpperCase();
-  if (!REPLY_PERMISSIONS.has(up)) {
-    throw new Error(`replyPermission must be one of: ${Array.from(REPLY_PERMISSIONS).join(', ')}`);
-  }
-  return up;
-}
-
-function validateQuotePostID(id) {
-  if (id == null) return;
-  const s = String(id).trim();
-  if (!CUID2_REGEX.test(s)) {
-    throw new Error('quotePostID must be a valid CUID v2-style id (letter + lowercase alphanumeric, length ~24-32).');
-  }
-  return s.toLowerCase();
-}
 
 function createClient(opts = {}) {
   const config = { ...DEFAULTS, ...opts };
@@ -72,88 +32,86 @@ function createClient(opts = {}) {
 
   ensureFormDataSupport();
 
-  async function _doFetch(url, options = {}, timeoutMs = 15000) {
-    const headers = Object.assign({}, options.headers || {}, {
-      Authorization: authHeader,
-      Accept: 'application/json'
-    });
-    return fetchWithTimeout(url, { ...options, headers }, timeoutMs);
+  function urlFor(pathname, query) {
+    const url = new URL(pathname, config.baseUrl);
+    return appendQuery(url, query).toString();
   }
 
-  /**
-   * uploadFiles
-   * Accepts files array items:
-   * - { path }
-   * - { buffer, filename?, contentType? }
-   * - { file } (File)
-   *
-   * Uses File when available (Bun/browser) to ensure filename is sent correctly.
-   */
+  async function request(pathname, { method = 'GET', query, body, headers, timeoutMs } = {}) {
+    const url = urlFor(pathname, query);
+    const finalHeaders = {
+      Authorization: authHeader,
+      Accept: 'application/json',
+      ...(headers || {})
+    };
+
+    const options = { method, headers: finalHeaders };
+    if (body !== undefined) {
+      options.body = JSON.stringify(body);
+      options.headers['Content-Type'] = 'application/json';
+    }
+
+    const resp = await fetchWithTimeout(url, options, timeoutMs ?? config.requestTimeoutMs);
+    const parsed = await parseResponseBody(resp);
+
+    if (!resp.ok || parsed?.success === false) {
+      const reason = parsed?.reason || resp.statusText || 'request_failed';
+      throw new BoodiBoxAPIError(`${method} ${pathname} failed: ${reason}`, {
+        status: resp.status,
+        statusText: resp.statusText,
+        body: parsed,
+        reason,
+        url,
+        method
+      });
+    }
+
+    return parsed;
+  }
+
   async function uploadFiles(files = []) {
     if (!Array.isArray(files) || files.length === 0) throw new Error('files must be a non-empty array');
-    const url = new URL(config.uploadPath, config.baseUrl).toString();
-
     const form = new FormData();
     for (const f of files) {
-      if (f.path) {
-        const filename = f.filename || path.basename(f.path);
-        const buffer = fs.readFileSync(f.path);
-        const contentType = f.contentType || guessContentTypeFromFilename(filename) || 'application/octet-stream';
-
-        if (typeof File !== 'undefined') {
-          const fileObj = new File([buffer], filename, { type: contentType });
-          form.append('files', fileObj);
-        } else {
-          const blob = new Blob([buffer], { type: contentType });
-          form.append('files', blob, filename);
-        }
-      } else if (f.buffer) {
-        const filename = f.filename || 'file';
-        const contentType = f.contentType || guessContentTypeFromFilename(filename) || 'application/octet-stream';
-        if (typeof File !== 'undefined') {
-          const fileObj = new File([f.buffer], filename, { type: contentType });
-          form.append('files', fileObj);
-        } else {
-          const blob = new Blob([f.buffer], { type: contentType });
-          form.append('files', blob, filename);
-        }
-      } else if (f.file) {
-        form.append('files', f.file, f.file.name || 'file');
+      const part = buildFilePart(f);
+      if (part.file) {
+        form.append('files', part.file, part.filename);
+      } else if (typeof File !== 'undefined') {
+        form.append('files', new File([part.bytes], part.filename, { type: part.contentType }));
       } else {
-        throw new Error('each file must contain either path, buffer, or file');
+        form.append('files', new Blob([part.bytes], { type: part.contentType }), part.filename);
       }
     }
 
-    const resp = await _doFetch(url, { method: 'POST', body: form }, 60000);
-    if (!resp.ok) {
-      const body = await safeParseJSON(resp);
-      const reason = body?.reason || `${resp.status} ${resp.statusText}`;
-      const e = new Error(`Upload failed: ${reason}`);
-      e.status = resp.status;
-      e.body = body;
-      throw e;
+    const url = urlFor(config.uploadPath);
+    const resp = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: { Authorization: authHeader, Accept: 'application/json' },
+      body: form
+    }, 60000);
+    const parsed = await parseResponseBody(resp);
+    if (!resp.ok || parsed?.success === false) {
+      const reason = parsed?.reason || resp.statusText || 'upload_failed';
+      throw new BoodiBoxAPIError(`Upload failed: ${reason}`, {
+        status: resp.status,
+        statusText: resp.statusText,
+        body: parsed,
+        reason,
+        url,
+        method: 'POST'
+      });
     }
-    const json = await resp.json();
-    if (!json.success) {
-      const e = new Error('upload endpoint returned success=false');
-      e.body = json;
-      throw e;
-    }
-    return json.uploads || [];
+    return parsed?.uploads || [];
   }
 
   async function getUploadStatus(uploadId) {
-    const url = new URL(`${config.uploadPath}/${encodeURIComponent(uploadId)}`, config.baseUrl).toString();
-    const resp = await _doFetch(url, { method: 'GET' }, 15000);
-    if (resp.status === 404) return { missing: true };
-    if (!resp.ok) {
-      const body = await safeParseJSON(resp);
-      const e = new Error('Failed to fetch upload status');
-      e.status = resp.status;
-      e.body = body;
-      throw e;
+    assertNonEmpty(uploadId, 'uploadId');
+    try {
+      return await request(`${config.uploadPath}/${encodeURIComponent(uploadId)}`);
+    } catch (err) {
+      if (err.status === 404) return { missing: true };
+      throw err;
     }
-    return resp.json();
   }
 
   async function pollUntilProcessed(uploadId, options = {}) {
@@ -176,97 +134,41 @@ function createClient(opts = {}) {
 
   async function pollManyUntilProcessed(uploadIds = [], options = {}) {
     if (!Array.isArray(uploadIds) || uploadIds.length === 0) return {};
-    const tasks = uploadIds.map(id => pollUntilProcessed(id, options).then(s => ({ id, s })));
-    const results = await Promise.all(tasks);
-    const map = {};
-    for (const r of results) map[r.id] = r.s;
-    return map;
+    const results = await Promise.all(uploadIds.map(id => pollUntilProcessed(id, options).then(s => ({ id, s }))));
+    return Object.fromEntries(results.map(r => [r.id, r.s]));
   }
 
-  /**
-   * submitPost
-   * replyPermission: if undefined -> defaults to PUBLIC
-   * if explicitly provided but empty/falsey -> throws
-   * now enforces: post must have non-empty body OR at least one media
-   */
-  async function submitPost({ body = '', medias = [], replyPermission = undefined, quotePostID = null, userIP = null }) {
-    // Handle replyPermission defaulting and validation
-    let rp;
-    if (replyPermission === undefined) {
-      rp = 'PUBLIC';
-    } else {
-      // explicit value provided -> validate it (reject empty)
-      rp = validateReplyPermission(replyPermission);
-    }
-
+  async function submitPost({ body = '', medias = [], replyPermission = undefined, quotePostID = null, userIP = null } = {}) {
+    const rp = replyPermission === undefined ? 'PUBLIC' : validateReplyPermission(replyPermission);
     const qid = quotePostID == null ? null : validateQuotePostID(quotePostID);
-
-    // Validation: require either a non-empty body or at least one media
     const bodyStr = (body == null ? '' : String(body)).trim();
-    const hasMedias = Array.isArray(medias) && medias.length > 0;
-    if (!bodyStr && !hasMedias) {
+    if (!bodyStr && (!Array.isArray(medias) || medias.length === 0)) {
       throw new Error('Post must include a non-empty body or at least one media.');
     }
-
-    const url = new URL(config.postsPath, config.baseUrl).toString();
     const payload = { body, medias, replyPermission: rp, quotePostID: qid };
     if (userIP) payload.userIP = userIP;
-    const resp = await _doFetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }, 20000);
-
-    if (!resp.ok) {
-      const parsed = await safeParseJSON(resp);
-      const e = new Error(`submit post failed: status: ${resp.status}, body: ${JSON.stringify(parsed)}`);
-      e.status = resp.status;
-      e.body = parsed;
-      throw e;
-    }
-    return resp.json();
+    return request(config.postsPath, { method: 'POST', body: payload, timeoutMs: 20000 });
   }
 
-  /**
-   * submitPostWithFiles
-   * - If replyPermission undefined -> defaults to PUBLIC
-   * - If replyPermission explicitly provided but empty -> throw
-   * - Requires either body or files; if files provided they will be uploaded
-   */
-  async function submitPostWithFiles({ body = '', files = [], replyPermission = undefined, quotePostID = null, pollOptions = {}, timeoutMs = 120000 }) {
-    // If no files and empty body -> reject early
+  async function submitPostWithFiles({ body = '', files = [], replyPermission = undefined, quotePostID = null, pollOptions = {}, timeoutMs = 120000 } = {}) {
     const bodyStr = (body == null ? '' : String(body)).trim();
     if ((!Array.isArray(files) || files.length === 0) && !bodyStr) {
       throw new Error('Post must include a non-empty body or at least one file to upload.');
     }
-
-    // validate upfront: default or validate replyPermission and quotePostID
-    if (replyPermission !== undefined) {
-      validateReplyPermission(replyPermission);
-    }
+    if (replyPermission !== undefined) validateReplyPermission(replyPermission);
     if (quotePostID != null) validateQuotePostID(quotePostID);
+    if (!Array.isArray(files) || files.length === 0) return submitPost({ body, medias: [], replyPermission, quotePostID });
 
-    if (!Array.isArray(files) || files.length === 0) {
-      // no files to upload, delegate to submitPost which also validates
-      return submitPost({ body, medias: [], replyPermission, quotePostID });
-    }
-
-    const uploads = await retryAsync(() => uploadFiles(files), config.maxRetries, 300).catch(err => {
-      throw new Error(`Uploading files failed: ${err.message}`);
-    });
-
+    const uploads = await retryAsync(() => uploadFiles(files), config.maxRetries, 300);
     const start = Date.now();
     const finalSrcs = [];
-
     for (const uploadId of uploads) {
       const remainingTime = timeoutMs - (Date.now() - start);
       if (remainingTime <= 0) throw new Error('Timeout while waiting for files to be processed');
-
       const statusObj = await pollUntilProcessed(uploadId, {
         intervalMs: pollOptions.intervalMs,
         timeoutMs: Math.min(remainingTime, pollOptions.timeoutMs ?? config.pollTimeoutMs)
       });
-
       if (statusObj.status !== 'PROCESSED') {
         const e = new Error(`Upload ${uploadId} terminal state: ${statusObj.status}`);
         e.statusObj = statusObj;
@@ -279,9 +181,55 @@ function createClient(opts = {}) {
       }
       finalSrcs.push(statusObj.src);
     }
+    return submitPost({ body, medias: finalSrcs, replyPermission, quotePostID });
+  }
 
-    const submitResult = await submitPost({ body, medias: finalSrcs, replyPermission, quotePostID });
-    return submitResult;
+  const postPath = postId => `${config.postsPath}/${encodeURIComponent(assertNonEmpty(postId, 'postId'))}`;
+  const userPath = idOrUsername => `${config.apiPath}/users/${encodeURIComponent(assertNonEmpty(idOrUsername, 'idOrUsername'))}`;
+
+  async function getPost(postId) { return request(postPath(postId)); }
+  async function deletePost(postId) { return request(postPath(postId), { method: 'DELETE' }); }
+  async function likePost(postId) { return request(`${postPath(postId)}/like`, { method: 'POST' }); }
+  async function unlikePost(postId) { return request(`${postPath(postId)}/like`, { method: 'DELETE' }); }
+  async function repostPost(postId) { return request(`${postPath(postId)}/repost`, { method: 'POST' }); }
+  async function undoRepost(postId) { return request(`${postPath(postId)}/repost`, { method: 'DELETE' }); }
+  async function replyToPost(postId, { body = '', medias = [] } = {}) {
+    if (!(body == null ? '' : String(body)).trim() && (!Array.isArray(medias) || medias.length === 0)) {
+      throw new Error('Reply must include a non-empty body or at least one media.');
+    }
+    return request(`${postPath(postId)}/reply`, { method: 'POST', body: { body, medias }, timeoutMs: 20000 });
+  }
+  async function getPostContext(postId) { return request(`${postPath(postId)}/context`); }
+
+  async function getTimeline({ maxResults, cursor } = {}) {
+    return request(`${config.apiPath}/timeline`, { query: { max_results: maxResults, cursor } });
+  }
+  async function getMyPosts({ maxResults, cursor } = {}) {
+    return request(`${config.apiPath}/users/me/posts`, { query: { max_results: maxResults, cursor } });
+  }
+  async function getUserPosts(idOrUsername, { maxResults, cursor } = {}) {
+    return request(`${userPath(idOrUsername)}/posts`, { query: { max_results: maxResults, cursor } });
+  }
+  async function getHashtagPosts({ tag, order = 'date', maxResults, cursor } = {}) {
+    assertNonEmpty(tag, 'tag');
+    if (!HASHTAG_ORDERS.has(order)) throw new Error(`order must be one of: ${Array.from(HASHTAG_ORDERS).join(', ')}`);
+    return request(`${config.apiPath}/hashtags`, { query: { tag, order, max_results: maxResults, cursor } });
+  }
+
+  async function getUser(idOrUsername) { return request(userPath(idOrUsername)); }
+  async function getFollows(idOrUsername, { type = 'followers', maxResults, cursor } = {}) {
+    if (!FOLLOW_TYPES.has(type)) throw new Error('type must be "followers" or "following"');
+    return request(`${userPath(idOrUsername)}/follows`, { query: { type, max_results: maxResults, cursor } });
+  }
+  async function followUser(idOrUsername) { return request(`${userPath(idOrUsername)}/follows`, { method: 'POST' }); }
+  async function unfollowUser(idOrUsername) { return request(`${userPath(idOrUsername)}/follows`, { method: 'DELETE' }); }
+  async function getBlocks({ maxResults, cursor } = {}) {
+    return request(`${config.apiPath}/users/me/blocks`, { query: { max_results: maxResults, cursor } });
+  }
+  async function blockUser(idOrUsername) { return request(`${userPath(idOrUsername)}/blocks`, { method: 'POST' }); }
+  async function unblockUser(idOrUsername) { return request(`${userPath(idOrUsername)}/blocks`, { method: 'DELETE' }); }
+  async function getMutes({ maxResults, cursor } = {}) {
+    return request(`${config.apiPath}/me/mutes`, { query: { max_results: maxResults, cursor } });
   }
 
   return {
@@ -291,36 +239,30 @@ function createClient(opts = {}) {
     pollManyUntilProcessed,
     submitPost,
     submitPostWithFiles,
+    getPost,
+    deletePost,
+    likePost,
+    unlikePost,
+    repostPost,
+    undoRepost,
+    replyToPost,
+    getPostContext,
+    getTimeline,
+    getMyPosts,
+    getUserPosts,
+    getHashtagPosts,
+    getUser,
+    getFollows,
+    followUser,
+    unfollowUser,
+    getBlocks,
+    blockUser,
+    unblockUser,
+    getMutes,
+    request,
     _raw: { config }
   };
 }
 
-// helpers
-function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-
-async function safeParseJSON(resp) {
-  try { return await resp.json(); } catch (e) { return null; }
-}
-
-async function retryAsync(fn, retries = 3, backoffMs = 200) {
-  let i = 0;
-  while (true) {
-    try { return await fn(); } catch (e) {
-      i++;
-      if (i > retries) throw e;
-      await wait(backoffMs * i);
-    }
-  }
-}
-
-function guessContentTypeFromFilename(name) {
-  if (!name) return null;
-  const ext = name.split('.').pop().toLowerCase();
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'png') return 'image/png';
-  if (ext === 'webp') return 'image/webp';
-  if (ext === 'gif') return 'image/gif';
-  return null;
-}
-
+createClient.BoodiBoxAPIError = BoodiBoxAPIError;
 module.exports = createClient;

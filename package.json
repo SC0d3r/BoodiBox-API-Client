@@ -1,13 +1,24 @@
 {
   "name": "@boodibox/api-client",
-  "version": "0.1.4",
-  "description": "Minimal client for BoodiBox API - submit posts - automate - upload media.",
+  "version": "0.2.0",
+  "description": "Dependency-free BoodiBox API client for posts, media, timelines, users, and relationships.",
   "main": "index.js",
   "license": "MIT",
-  "keywords": ["boodibox","api","uploads","images","posts","automate","bot"],
+  "keywords": [
+    "boodibox",
+    "api",
+    "client",
+    "uploads",
+    "media",
+    "posts",
+    "timeline",
+    "users",
+    "follows",
+    "automate",
+    "bot"
+  ],
   "author": "SC0d3r",
   "scripts": {
     "test": "bun test"
   }
 }
-
