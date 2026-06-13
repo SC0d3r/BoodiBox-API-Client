@@ -19,6 +19,7 @@
   ],
   "author": "SC0d3r",
   "scripts": {
-    "test": "bun test"
+    "test": "bun test ./test/* --env-file=e2e.env",
+    "test:e2e": "bun test --env-file=e2e.env"
   }
 }
