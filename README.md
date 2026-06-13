@@ -1,136 +1,282 @@
-# @boodibox/api-client ✨
+# @boodibox/api-client
 
-Tiny, dependency-free Node/Bun client for the BoodiBox API. Create posts, upload media, read timelines, interact with posts, and manage user relationships from one simple package.
+<div dir="rtl">
 
-## Install 📦
+این بسته برای ارسال خودکار **پست‌ها** به https://boodibox.com/posts طراحی شده یعنی شما می‌توانید به‌سرعت پست منتشر کنید یا یک بات بسازید که محتوای شما را خودکار ارسال کند.
+
+کتابخانه جریان کامل را پوشش می‌دهد: آپلود تصویر (اختیاری) ← نظارت روی وضعیت تا زمانی که پردازش شود ← ارسال پست با `medias` که سرور تولید می‌کند.
+
+**آموزش گرفتن API Key:** https://boodibox.com/dev/api-key
+
+## نصب
+
+</div>
 
 ```bash
 npm install @boodibox/api-client
 ```
+یا
+```bash
+yarn add @boodibox/api-client
+```
 
-Requires Node 18+ or a runtime with `fetch`, `FormData`, and `Blob`.
+<div dir="rtl">
 
-## Quick start 🚀
+> این کتابخانه از امکانات بومی Node (fetch, FormData, Blob) استفاده می‌کند. از Node >= 18 استفاده کنید، یا برای محیط‌هایی که `FormData` / `Blob` ندارند یک polyfill نصب کنید (مثلاً `formdata-node`).
+
+---
+
+
+این بسته برای خودکارسازی ارسال پست‌ها به آدرس https://boodibox.com/posts ساخته شده است. شما می‌توانید:
+
+* به‌راحتی پست منتشر کنید، یا
+* یک ربات بسازید که محتوا را خودکار ارسال کند.
+
+تذکرهای مهم:
+
+* پارامتر `replyPermission` چهار مقدار معتبر دارد: `PUBLIC` (پیش‌فرض)، `PRIVATE` (هیچ‌کس نمی‌تواند ریپلای کند)، `MENTION` (فقط افراد منشن‌شده)، و `FOLLOW` (افرادی که شما دنبال می‌کنید). (در غیر این صورت کتابخانه خطا پرتاب می‌کند.)
+* اگر می‌خواهید یک پست را به عنوان نقل قول ارسال کنید، مقدار `quotePostID` باید یک آی‌دی معتبر **CUID v2** باشد (پترن عملی: حرف اول، سپس حروف و اعداد کوچک، طول معمول 24–32 کاراکتر).
+
+---
+
+## استفادهٔ سریع
+
+</div>
 
 ```js
 const createClient = require('@boodibox/api-client');
 
 const client = createClient({
-  apiKey: process.env.BOODIBOX_API_KEY,
-  // baseUrl: 'https://boodibox.com' // optional
+  apiKey: 'YOUR_API_KEY_HERE'        // می‌تواند فقط توکن یا "Bearer <token>" باشد
 });
 
+// ارسال پست ساده بدون تصویر
+await client.submitPost({ body: 'سلام از API' });
+
+// ارسال پست با تصویر (از دیسک)
 await client.submitPostWithFiles({
-  body: 'Hello from the API ✨',
-  files: [],
-  replyPermission: 'PUBLIC'
+  body: 'پست با عکس',
+  files: [{ path: './tiny.jpg' }],
+  replyPermission: 'PUBLIC' // یا 'PRIVATE'، 'MENTION'، 'FOLLOW'
 });
 ```
 
-API keys can be passed as either `ak_prefix.secret` or `Bearer ak_prefix.secret`.
+---
 
-## Posts 📝
+<div dir="auto">
+
+## APIها (توابع اصلی)
+
+* `createClient({ baseUrl, apiKey })` – ساخت کلاینت
+* `uploadFiles(files)` – آپلود فایل‌ها (برمی‌گرداند آرایه‌ای از upload ids)
+* `pollUntilProcessed(uploadId, options)` – نظارت تا وضعیت `PROCESSED`
+* `submitPost({ body, medias, replyPermission, quotePostID, userIP })`
+* `submitPostWithFiles({ body, files, replyPermission, quotePostID, pollOptions, timeoutMs })`
+* `getPost(postId)` – گرفتن اطلاعات یک پست
+* `deletePost(postId)` – حذف پست خودتان
+* `likePost(postId)` / `unlikePost(postId)` – لایک و آنلایک
+* `repostPost(postId)` / `undoRepost(postId)` – ری‌پست و لغو ری‌پست
+* `replyToPost(postId, { body, medias })` – ارسال ریپلای
+* `getPostContext(postId)` – گرفتن کانتکست کامل پست
+* `getTimeline({ maxResults, cursor })` – گرفتن تایم‌لاین
+* `getMyPosts({ maxResults, cursor })` – گرفتن پست‌های خودتان
+* `getUserPosts(idOrUsername, { maxResults, cursor })` – گرفتن پست‌های یک کاربر
+* `getHashtagPosts({ tag, order, maxResults, cursor })` – گرفتن پست‌های یک هشتگ
+* `getUser(idOrUsername)` – گرفتن اطلاعات پروفایل کاربر
+* `getFollows(idOrUsername, { type, maxResults, cursor })` – گرفتن followers یا following
+* `followUser(idOrUsername)` / `unfollowUser(idOrUsername)` – فالو و آنفالو
+* `getBlocks({ maxResults, cursor })` – لیست بلاک‌های کاربر فعلی
+* `blockUser(idOrUsername)` / `unblockUser(idOrUsername)` – بلاک و آن‌بلاک
+* `getMutes({ maxResults, cursor })` – لیست muteها
+
+---
+  * این تابع به‌صورت convenience تمامی مراحل را انجام می‌دهد: آپلود فایل‌ها ← poll تا پردازش ← ارسال پست با `medias` برگشتی
+
+<!-- <div align="left"> -->
+
+----
+
+### شکل فایل‌ها (files)
+
+هر عنصر می‌تواند یکی از موارد باشد:
+
+<!-- </div> -->
+
+* `{ path: "./file.jpg" }` — خواندن از دیسک
+* `{ buffer: Buffer, filename: "a.jpg" }`
+* `{ file: File }` (در مرورگر)
+
+
+---
+
+## APIهای جدید پست‌ها و تعاملات
+
+</div>
 
 ```js
-await client.submitPost({ body: 'hello', medias: [], replyPermission: 'PUBLIC' });
-await client.submitPost({ body: 'quote', quotePostID: 'babcdefghijklmnopqrstuvw' });
-await client.getPost('post_id');
-await client.deletePost('post_id');
+// گرفتن یک پست
+const post = await client.getPost('post_id');
 
+// لایک / آنلایک
 await client.likePost('post_id');
 await client.unlikePost('post_id');
+
+// ری‌پست / لغو ری‌پست
 await client.repostPost('post_id');
 await client.undoRepost('post_id');
 
-await client.replyToPost('post_id', { body: 'reply text', medias: [] });
-await client.getPostContext('post_id');
-```
-
-## Media uploads 🖼️
-
-```js
-await client.submitPostWithFiles({
-  body: 'photo post',
-  files: [{ path: './photo.jpg' }]
+// ریپلای
+await client.replyToPost('post_id', {
+  body: 'پاسخ من',
+  medias: []
 });
 
-const uploads = await client.uploadFiles([{ path: './photo.jpg' }]);
-const status = await client.pollUntilProcessed(uploads[0]);
+// کانتکست کامل برای ریپلای‌ها، quoteها، و repostها
+const context = await client.getPostContext('post_id');
+
+// حذف پست خودتان
+await client.deletePost('post_id');
 ```
 
-Supported file inputs:
+<div dir="rtl">
 
-- `{ path: './file.jpg' }`
-- `{ buffer, filename: 'file.jpg', contentType: 'image/jpeg' }`
-- `{ file }`
+---
 
-## Timelines + discovery 🔎
+## تایم‌لاین، پست‌های کاربر و هشتگ‌ها
+
+</div>
 
 ```js
-await client.getTimeline({ maxResults: 30, cursor: 'next_cursor' });
+const timeline = await client.getTimeline({ maxResults: 30 });
+const nextCursor = timeline.meta?.next_cursor;
+
+await client.getTimeline({ maxResults: 30, cursor: nextCursor });
 await client.getMyPosts({ maxResults: 32 });
-await client.getUserPosts('alice', { maxResults: 32 });
-await client.getHashtagPosts({ tag: 'javascript', order: 'activity', maxResults: 32 });
+await client.getUserPosts('username', { maxResults: 32 });
+await client.getHashtagPosts({
+  tag: 'javascript',
+  order: 'date', // date | likes | views | activity
+  maxResults: 32
+});
 ```
 
-Hashtag `order` can be `date`, `likes`, `views`, or `activity`.
+<div dir="rtl">
 
-## Users + relationships 👥
+* در همه‌ی endpointهای خواندنی، `maxResults` و `cursor` پشتیبانی می‌شود. کلاینت به‌صورت خودکار `maxResults` را به `max_results` تبدیل می‌کند.
+* مقدارهای معتبر `order` برای هشتگ‌ها: `date`، `likes`، `views`، `activity`.
+
+---
+
+## کاربران و رابطه‌ها
+
+</div>
 
 ```js
-await client.getUser('alice');
-await client.getFollows('alice', { type: 'followers' });
-await client.getFollows('alice', { type: 'following' });
+const user = await client.getUser('username');
 
-await client.followUser('alice');
-await client.unfollowUser('alice');
+await client.getFollows('username', { type: 'followers' });
+await client.getFollows('username', { type: 'following' });
+
+await client.followUser('username');
+await client.unfollowUser('username');
 
 await client.getBlocks();
-await client.blockUser('alice');
-await client.unblockUser('alice');
+await client.blockUser('username');
+await client.unblockUser('username');
+
 await client.getMutes();
 ```
 
-## Pagination 📄
+<div dir="rtl">
 
-Read endpoints accept `maxResults` and `cursor`. The client sends them as `max_results` and `cursor`, matching the REST API.
+---
 
-```js
-const page = await client.getTimeline({ maxResults: 30 });
-const next = page.meta?.next_cursor;
-```
+## خطاها
 
-## Errors 🧯
+اگر سرور خطا بدهد، کلاینت یک خطای ساختاریافته پرتاب می‌کند که این فیلدها را دارد:
 
-Failed API responses throw `BoodiBoxAPIError` with useful fields:
+</div>
 
 ```js
 try {
   await client.getPost('missing_post');
 } catch (err) {
-  console.log(err.status); // 404
+  console.log(err.status); // مثلا 404
   console.log(err.reason); // machine-readable reason
-  console.log(err.body);   // parsed response body
+  console.log(err.body);   // بدنه‌ی parse‌شده‌ی پاسخ
 }
 ```
 
-Client-side validation catches empty post/reply bodies, invalid follow list types, invalid hashtag ordering, and invalid `replyPermission` values before making a request.
+<div dir="rtl">
 
-## Tests 🧪
+---
+
+## اعتبارسنجی و محدودیت‌ها
+
+* `replyPermission` تنها مقدارهای معتبر `PUBLIC`، `PRIVATE`، `MENTION` و `FOLLOW` را می‌پذیرد. اگر مقدار ندهید، `PUBLIC` استفاده می‌شود.
+* `quotePostID` باید شبیه **CUID v2** باشد (حرف اول، سپس حروف/اعداد کوچک؛ طول معمول 24–32). اگر نامعتبر باشد، خطا پرتاب می‌شود.
+* کتابخانه تلاش‌هایی برای retry آپلود انجام می‌دهد و اگر سرور خطا بازگرداند، خطا با بدنهٔ پاسخ شامل جزئیات برمی‌گردد (`err.body`).
+* خطاهای API فیلدهای `status`، `reason`، `body`، `url` و `method` دارند.
+
+---
+
+## تست‌ها (Bun)
+
+برای اجرای تست‌های یکپارچه (integration) به صورت اختیاری از متغیرهای محیطی زیر استفاده کنید:
+
+* `API_KEY` :مقدار API key (فرمت: `Bearer <token>` یا فقط توکن)
+* `TEST_INTEGRATION=true` :اگر این مقدار تنظیم نشده باشد، تست‌های یکپارچه واقعی نادیده گرفته می‌شوند
+* `BASE_URL` :آدرس سرور محلی شما (مثلاً `http://localhost:3000`)
+* `TEST_USERNAME` :اختیاری، برای تست خواندن پست‌های کاربر
+* `TEST_HASHTAG` :اختیاری، برای تست هشتگ
+* `TEST_TARGET_USER` :اختیاری، برای تست فالو/بلاک روی یک کاربر تستی
+
+نمونه:
+
+</div>
 
 ```bash
-bun test
-```
-
-Optional live integration test:
-
-```bash
-export API_KEY="Bearer ak_prefix.secret"
+export API_KEY="Bearer xxxxx"
 export TEST_INTEGRATION=true
 export BASE_URL="http://localhost:3000"
-bun test
+bun test test/e2e*.bun.test.js
 ```
+
+برای تست‌های mock که به سرور واقعی وصل نمی‌شوند:
+
+```bash
+bun test test/mock.bun.test.js
+```
+
+<div dir="rtl">
+
+## لینک مفید
+* راهنمای گرفتن API Key: [https://boodibox.com/dev/api-key](https://boodibox.com/dev/api-key)
+
+* پست ها بودیباکس: [https://boodibox.com/posts](https://boodibox.com/posts)
+
+</div>
 
 ## License
 
-MIT
+MIT License
+
+Copyright (c) 2026 BoodiBox
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
