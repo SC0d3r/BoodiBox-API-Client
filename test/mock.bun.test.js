@@ -55,6 +55,12 @@ function installMockFetch() {
     if (parsed.pathname === '/api/v1/users/alice/posts' && method === 'GET') {
       return jsonResponse({ success: true, data: { posts: [] }, meta: { next_cursor: null } });
     }
+    if (parsed.pathname === '/api/v1/users/me/mentions' && method === 'GET') {
+      return jsonResponse({ success: true, data: { posts: [] }, meta: { next_cursor: null } });
+    }
+    if (parsed.pathname === '/api/v1/users/alice/mentions' && method === 'GET') {
+      return jsonResponse({ success: true, data: { posts: [] }, meta: { next_cursor: null } });
+    }
     if (parsed.pathname === '/api/v1/hashtags' && method === 'GET') {
       return jsonResponse({ success: true, data: { posts: [] }, meta: { next_cursor: null } });
     }
@@ -103,6 +109,8 @@ describe('BoodiBox client mock coverage', () => {
     await client.getTimeline({ maxResults: 30, cursor: 'abc' });
     await client.getMyPosts({ maxResults: 32 });
     await client.getUserPosts('alice', { cursor: 'next' });
+    await client.getMyMentions({ maxResults: 32 });
+    await client.getUserMentions('alice', { maxResults: 32, cursor: 'mentions-next' });
     await client.getHashtagPosts({ tag: 'javascript', order: 'activity', maxResults: 10 });
     await client.getUser('alice');
     await client.getFollows('alice', { type: 'followers' });
@@ -127,6 +135,8 @@ describe('BoodiBox client mock coverage', () => {
       'GET /api/v1/timeline',
       'GET /api/v1/users/me/posts',
       'GET /api/v1/users/alice/posts',
+      'GET /api/v1/users/me/mentions',
+      'GET /api/v1/users/alice/mentions',
       'GET /api/v1/hashtags',
       'GET /api/v1/users/alice',
       'GET /api/v1/users/alice/follows',
@@ -139,7 +149,9 @@ describe('BoodiBox client mock coverage', () => {
       'GET /api/v1/me/mutes'
     ]);
     expect(calls[9].parsed.searchParams.get('max_results')).toBe('30');
-    expect(calls[12].parsed.searchParams.get('order')).toBe('activity');
+    expect(calls[12].parsed.searchParams.get('max_results')).toBe('32');
+    expect(calls[13].parsed.searchParams.get('cursor')).toBe('mentions-next');
+    expect(calls[14].parsed.searchParams.get('order')).toBe('activity');
     expect(calls[0].headers.Authorization).toBe('Bearer ak_test.secret');
   });
 
