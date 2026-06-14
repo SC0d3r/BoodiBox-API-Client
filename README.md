@@ -81,6 +81,8 @@ await client.submitPostWithFiles({
 * `getTimeline({ maxResults, cursor })` – گرفتن تایم‌لاین
 * `getMyPosts({ maxResults, cursor })` – گرفتن پست‌های خودتان
 * `getUserPosts(idOrUsername, { maxResults, cursor })` – گرفتن پست‌های یک کاربر
+* `getMyMentions({ maxResults, cursor })` – گرفتن پست‌هایی که کاربر فعلی را منشن کرده‌اند
+* `getUserMentions(idOrUsername, { maxResults, cursor })` – گرفتن پست‌هایی که یک کاربر را منشن کرده‌اند
 * `getHashtagPosts({ tag, order, maxResults, cursor })` – گرفتن پست‌های یک هشتگ
 * `getUser(idOrUsername)` – گرفتن اطلاعات پروفایل کاربر
 * `getFollows(idOrUsername, { type, maxResults, cursor })` – گرفتن followers یا following
@@ -142,7 +144,7 @@ await client.deletePost('post_id');
 
 ---
 
-## تایم‌لاین، پست‌های کاربر و هشتگ‌ها
+## تایم‌لاین، پست‌های کاربر، منشن‌ها و هشتگ‌ها
 
 </div>
 
@@ -153,6 +155,8 @@ const nextCursor = timeline.meta?.next_cursor;
 await client.getTimeline({ maxResults: 30, cursor: nextCursor });
 await client.getMyPosts({ maxResults: 32 });
 await client.getUserPosts('username', { maxResults: 32 });
+await client.getMyMentions({ maxResults: 32 });
+await client.getUserMentions('username', { maxResults: 32 });
 await client.getHashtagPosts({
   tag: 'javascript',
   order: 'date', // date | likes | views | activity
