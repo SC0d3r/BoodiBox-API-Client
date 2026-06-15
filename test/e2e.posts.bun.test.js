@@ -8,6 +8,10 @@ function getCreatedPostId(result) {
   return result?.data?.id || result?.data?.post?.id || result?.id;
 }
 
+function getPosts(result) {
+  return result?.data?.posts || result?.data?.replies || result?.posts || result?.replies || [];
+}
+
 describe('BoodiBox post APIs against local server', () => {
   if (!API_KEY || process.env.TEST_INTEGRATION !== 'true') {
     test('skipped', () => {
@@ -33,7 +37,15 @@ describe('BoodiBox post APIs against local server', () => {
     await expect(client.unlikePost(postId)).resolves.toBeDefined();
     await expect(client.repostPost(postId)).resolves.toBeDefined();
     await expect(client.undoRepost(postId)).resolves.toBeDefined();
-    await expect(client.replyToPost(postId, { body: 'reply integration test', medias: [] })).resolves.toBeDefined();
+    const reply = await client.replyToPost(postId, { body: 'reply integration test', medias: [] });
+    const replyId = getCreatedPostId(reply);
+    expect(replyId).toBeTruthy();
+
+    const replies = await client.getPostReplies(postId, { order: 'newest', maxResults: 5 });
+    const replyPosts = getPosts(replies);
+    expect(Array.isArray(replyPosts)).toBe(true);
+    expect(replyPosts.some(post => getCreatedPostId(post) === replyId || post?.parentPostID === postId)).toBe(true);
+
     await expect(client.deletePost(postId)).resolves.toBeDefined();
   }, { timeout: 120000 });
 });

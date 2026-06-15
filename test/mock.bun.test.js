@@ -46,6 +46,9 @@ function installMockFetch() {
     if (parsed.pathname === '/api/v1/posts/post_1/context' && method === 'GET') {
       return jsonResponse({ success: true, data: { posts: [{ id: 'post_1' }] } });
     }
+    if (parsed.pathname === '/api/v1/posts/post_1/replies' && method === 'GET') {
+      return jsonResponse({ success: true, data: { posts: [{ id: 'reply_1', parentPostID: 'post_1' }] }, meta: { next_cursor: null } });
+    }
     if (parsed.pathname === '/api/v1/timeline' && method === 'GET') {
       return jsonResponse({ success: true, data: { posts: [] }, meta: { next_cursor: null } });
     }
@@ -106,6 +109,7 @@ describe('BoodiBox client mock coverage', () => {
     await client.undoRepost('post_1');
     await client.replyToPost('post_1', { body: 'reply', medias: [] });
     await client.getPostContext('post_1');
+    await client.getPostReplies('post_1', { order: 'newest', maxResults: 32, cursor: 'reply-next' });
     await client.getTimeline({ maxResults: 30, cursor: 'abc' });
     await client.getMyPosts({ maxResults: 32 });
     await client.getUserPosts('alice', { cursor: 'next' });
@@ -132,6 +136,7 @@ describe('BoodiBox client mock coverage', () => {
       'DELETE /api/v1/posts/post_1/repost',
       'POST /api/v1/posts/post_1/reply',
       'GET /api/v1/posts/post_1/context',
+      'GET /api/v1/posts/post_1/replies',
       'GET /api/v1/timeline',
       'GET /api/v1/users/me/posts',
       'GET /api/v1/users/alice/posts',
@@ -148,10 +153,13 @@ describe('BoodiBox client mock coverage', () => {
       'DELETE /api/v1/users/alice/blocks',
       'GET /api/v1/me/mutes'
     ]);
-    expect(calls[9].parsed.searchParams.get('max_results')).toBe('30');
-    expect(calls[12].parsed.searchParams.get('max_results')).toBe('32');
-    expect(calls[13].parsed.searchParams.get('cursor')).toBe('mentions-next');
-    expect(calls[14].parsed.searchParams.get('order')).toBe('activity');
+    expect(calls[9].parsed.searchParams.get('order')).toBe('newest');
+    expect(calls[9].parsed.searchParams.get('max_results')).toBe('32');
+    expect(calls[9].parsed.searchParams.get('cursor')).toBe('reply-next');
+    expect(calls[10].parsed.searchParams.get('max_results')).toBe('30');
+    expect(calls[13].parsed.searchParams.get('max_results')).toBe('32');
+    expect(calls[14].parsed.searchParams.get('cursor')).toBe('mentions-next');
+    expect(calls[15].parsed.searchParams.get('order')).toBe('activity');
     expect(calls[0].headers.Authorization).toBe('Bearer ak_test.secret');
   });
 
@@ -181,6 +189,7 @@ describe('BoodiBox client mock coverage', () => {
 
     await expect(client.getPost('missing')).rejects.toMatchObject({ status: 404, reason: 'post_not_found' });
     expect(() => client.getHashtagPosts({ tag: 'js', order: 'newest' })).toThrow('order must be one of');
+    expect(() => client.getPostReplies('post_1', { order: 'popular' })).toThrow('order must be one of');
     expect(() => client.getFollows('alice', { type: 'friends' })).toThrow('type must be "followers" or "following"');
     expect(() => client.submitPost({ body: 'hi', replyPermission: 'EVERYONE' })).toThrow('replyPermission must be one of');
     await expect(client.replyToPost('post_1', { body: '', medias: [] })).rejects.toThrow('Reply must include');
