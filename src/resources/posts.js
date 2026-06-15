@@ -1,5 +1,7 @@
 const { assertNonEmpty, validateQuotePostID, validateReplyPermission } = require('../../lib/utils');
 
+const POST_REPLY_ORDERS = new Set(['top', 'newest', 'oldest']);
+
 function createPostsResource({ config, request, uploads }) {
   const postPath = postId => `${config.postsPath}/${encodeURIComponent(assertNonEmpty(postId, 'postId'))}`;
 
@@ -43,6 +45,10 @@ function createPostsResource({ config, request, uploads }) {
     return request(`${postPath(postId)}/reply`, { method: 'POST', body: { body, medias }, timeoutMs: 20000 });
   }
   async function getPostContext(postId) { return request(`${postPath(postId)}/context`); }
+  async function getPostReplies(postId, { order = 'top', maxResults, cursor } = {}) {
+    if (!POST_REPLY_ORDERS.has(order)) throw new Error(`order must be one of: ${Array.from(POST_REPLY_ORDERS).join(', ')}`);
+    return request(`${postPath(postId)}/replies`, { query: { order, max_results: maxResults, cursor } });
+  }
 
   return {
     submitPost,
@@ -54,7 +60,8 @@ function createPostsResource({ config, request, uploads }) {
     repostPost,
     undoRepost,
     replyToPost,
-    getPostContext
+    getPostContext,
+    getPostReplies
   };
 }
 

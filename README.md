@@ -78,6 +78,7 @@ await client.submitPostWithFiles({
 * `repostPost(postId)` / `undoRepost(postId)` – ری‌پست و لغو ری‌پست
 * `replyToPost(postId, { body, medias })` – ارسال ریپلای
 * `getPostContext(postId)` – گرفتن کانتکست کامل پست
+* `getPostReplies(postId, { order, maxResults, cursor })` – گرفتن ریپلای‌های مستقیم پست (`top`، `newest`، یا `oldest`)
 * `getTimeline({ maxResults, cursor })` – گرفتن تایم‌لاین
 * `getMyPosts({ maxResults, cursor })` – گرفتن پست‌های خودتان
 * `getUserPosts(idOrUsername, { maxResults, cursor })` – گرفتن پست‌های یک کاربر
@@ -135,6 +136,13 @@ await client.replyToPost('post_id', {
 
 // کانتکست کامل برای ریپلای‌ها، quoteها، و repostها
 const context = await client.getPostContext('post_id');
+
+// ریپلای‌های مستقیم پست
+const replies = await client.getPostReplies('post_id', {
+  order: 'top',
+  maxResults: 32,
+  cursor: 'next_cursor'
+});
 
 // حذف پست خودتان
 await client.deletePost('post_id');
