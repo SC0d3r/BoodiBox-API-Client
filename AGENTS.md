@@ -2,6 +2,7 @@
 - if you cannot curl sth or gives 403 try it using proxychains4 before to see if that works
 - before commit and push always ask for confirmation
 - in this network alot of calls is blocked or seems blocks so if you webfetch and it is blocked try using proxychains4 to see if  that helps
+- keep the coding style
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
