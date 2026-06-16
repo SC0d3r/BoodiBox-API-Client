@@ -9,7 +9,7 @@ function getCreatedPostId(result) {
 }
 
 function getPosts(result) {
-  return result?.data?.posts || result?.data?.replies || result?.posts || result?.replies || [];
+  return result?.data?.posts || result?.data?.replies || result?.posts || result?.replies || (Array.isArray(result?.data) ? result.data : []) || [];
 }
 
 describe('BoodiBox post APIs against local server', () => {
