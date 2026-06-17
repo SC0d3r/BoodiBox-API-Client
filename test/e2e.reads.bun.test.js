@@ -17,12 +17,13 @@ describe('BoodiBox read APIs against local server', () => {
 
   const client = createClient({ baseUrl: BASE, apiKey: API_KEY });
 
-  test('timeline, own posts, user posts, hashtag posts, blocks, and mutes', async () => {
+  test('timeline, own posts, user posts, hashtag posts, blocks, mutes, and notifications', async () => {
     await expect(client.getTimeline({ maxResults: 5 })).resolves.toBeDefined();
     await expect(client.getMyPosts({ maxResults: 5 })).resolves.toBeDefined();
     await expect(client.getUserPosts(USERNAME, { maxResults: 5 })).resolves.toBeDefined();
     await expect(client.getHashtagPosts({ tag: HASHTAG, order: 'date', maxResults: 5 })).resolves.toBeDefined();
     await expect(client.getBlocks({ maxResults: 5 })).resolves.toBeDefined();
     await expect(client.getMutes({ maxResults: 5 })).resolves.toBeDefined();
+    await expect(client.getNotifications({ maxResults: 5 })).resolves.toBeDefined();
   }, { timeout: 120000 });
 });

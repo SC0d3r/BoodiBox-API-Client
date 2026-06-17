@@ -91,6 +91,7 @@ await client.submitPostWithFiles({
 * `getBlocks({ maxResults, cursor })` – لیست بلاک‌های کاربر فعلی
 * `blockUser(idOrUsername)` / `unblockUser(idOrUsername)` – بلاک و آن‌بلاک
 * `getMutes({ maxResults, cursor })` – لیست muteها
+* `getNotifications({ maxResults, cursor, date })` – گرفتن نوتیفیکیشن‌های کاربر فعلی
 
 ---
   * این تابع به‌صورت convenience تمامی مراحل را انجام می‌دهد: آپلود فایل‌ها ← poll تا پردازش ← ارسال پست با `medias` برگشتی
@@ -197,6 +198,24 @@ await client.blockUser('username');
 await client.unblockUser('username');
 
 await client.getMutes();
+```
+
+<div dir="rtl">
+
+---
+
+## نوتیفیکیشن‌ها
+
+</div>
+
+```js
+const notifs = await client.getNotifications({
+  maxResults: 30,   // به‌صورت limit به سرور فرستاده می‌شود (حداکثر 100)
+  cursor: 'MjA',    // از meta.next_cursor پاسخ قبلی
+  date: '2026-06-16' // اختیاری: فیلتر روز UTC
+});
+
+const nextCursor = notifs.meta?.next_cursor;
 ```
 
 <div dir="rtl">

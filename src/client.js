@@ -5,6 +5,7 @@ const { createUploadsResource } = require('./resources/uploads');
 const { createPostsResource } = require('./resources/posts');
 const { createTimelinesResource } = require('./resources/timelines');
 const { createUsersResource } = require('./resources/users');
+const { createNotificationsResource } = require('./resources/notifications');
 
 const DEFAULTS = {
   baseUrl: process.env.BASE_URL || 'https://boodibox.com',
@@ -29,12 +30,14 @@ function createClient(opts = {}) {
   const posts = createPostsResource({ config, request: requestTools.request, uploads });
   const timelines = createTimelinesResource({ config, request: requestTools.request, userPath });
   const users = createUsersResource({ config, request: requestTools.request, userPath });
+  const notifications = createNotificationsResource({ config, request: requestTools.request });
 
   return {
     ...uploads,
     ...posts,
     ...timelines,
     ...users,
+    ...notifications,
     request: requestTools.request,
     _raw: { config }
   };

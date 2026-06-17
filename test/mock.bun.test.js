@@ -82,6 +82,13 @@ function installMockFetch() {
     if (parsed.pathname === '/api/v1/me/mutes' && method === 'GET') {
       return jsonResponse({ success: true, data: { users: [], note: 'mutes are not persisted yet' } });
     }
+    if (parsed.pathname === '/api/v1/notifications' && method === 'GET') {
+      return jsonResponse({
+        success: true,
+        data: [{ id: 'event_1', priority: 'NORMAL', date: '2026-06-16T00:00:00.000Z', type: 'YOUR_POST_GOT_LIKED', pinned: false, seen: { id: 'seeable_1', status: true } }],
+        meta: { limit: 20, next_cursor: 'MjA' }
+      });
+    }
     if (parsed.pathname === '/api/v1/posts/missing' && method === 'GET') {
       return jsonResponse({ success: false, reason: 'post_not_found' }, 404);
     }
@@ -125,6 +132,7 @@ describe('BoodiBox client mock coverage', () => {
     await client.blockUser('alice');
     await client.unblockUser('alice');
     await client.getMutes();
+    await client.getNotifications({ maxResults: 50, cursor: 'notif-next', date: '2026-06-16' });
 
     expect(calls.map(c => `${c.method} ${c.parsed.pathname}`)).toEqual([
       'POST /api/v1/posts',
@@ -151,7 +159,8 @@ describe('BoodiBox client mock coverage', () => {
       'GET /api/v1/users/me/blocks',
       'POST /api/v1/users/alice/blocks',
       'DELETE /api/v1/users/alice/blocks',
-      'GET /api/v1/me/mutes'
+      'GET /api/v1/me/mutes',
+      'GET /api/v1/notifications'
     ]);
     expect(calls[9].parsed.searchParams.get('order')).toBe('newest');
     expect(calls[9].parsed.searchParams.get('max_results')).toBe('32');
@@ -160,6 +169,9 @@ describe('BoodiBox client mock coverage', () => {
     expect(calls[13].parsed.searchParams.get('max_results')).toBe('32');
     expect(calls[14].parsed.searchParams.get('cursor')).toBe('mentions-next');
     expect(calls[15].parsed.searchParams.get('order')).toBe('activity');
+    expect(calls[25].parsed.searchParams.get('limit')).toBe('50');
+    expect(calls[25].parsed.searchParams.get('cursor')).toBe('notif-next');
+    expect(calls[25].parsed.searchParams.get('date')).toBe('2026-06-16');
     expect(calls[0].headers.Authorization).toBe('Bearer ak_test.secret');
   });
 
