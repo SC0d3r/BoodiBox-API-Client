@@ -1,6 +1,6 @@
 {
   "name": "@boodibox/api-client",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Dependency-free BoodiBox API client for posts, media, timelines, users, and relationships.",
   "main": "index.js",
   "license": "MIT",
